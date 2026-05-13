@@ -1,0 +1,118 @@
+{
+  "2023 12.zip": [
+    {
+      "arquivo": "mbp_3d_medio_1731092855.0000000.png",
+      "data": "19/12/2023",
+      "id": "mbp",
+      "dedo": "Médio - Direita",
+      "erros": [
+        {
+          "nome": "Scanner Sujo",
+          "descricao": "O scanner está sujo.",
+          "avaliacao": 1,
+          "timestamp": "2026-04-25 20:24:12"
+        },
+        {
+          "nome": "Manchas na Digital",
+          "descricao": "Existem manchas entre as cristas.",
+          "avaliacao": 3,
+          "timestamp": "2026-04-25 20:24:12"
+        },
+        {
+          "nome": "Fiapos na Digital",
+          "descricao": "Existem fiapos entre as cristas.",
+          "avaliacao": 2,
+          "timestamp": "2026-04-25 20:24:12"
+        }
+      ]
+    },
+    {
+      "arquivo": "sds_4e_2_indic_1731100298.0000000.png",
+      "data": "19/12/2023",
+      "id": "sds",
+      "dedo": "Indicador - Esquerda",
+      "erros": [
+        {
+          "nome": "Scanner Sujo",
+          "descricao": "O scanner está sujo.",
+          "avaliacao": 3,
+          "timestamp": "2026-04-25 20:25:42"
+        },
+        {
+          "nome": "Manchas na Digital",
+          "descricao": "Existem manchas entre as cristas.",
+          "avaliacao": 3,
+          "timestamp": "2026-04-25 20:25:42"
+        },
+        {
+          "nome": "Dedo Fora da Área",
+          "descricao": "Parte da digital ficou fora da área de captura.",
+          "avaliacao": 2,
+          "timestamp": "2026-04-25 20:25:42"
+        },
+        {
+          "nome": "Sem Padrão Visível",
+          "descricao": "A digital não tem padrão reconhecível.",
+          "avaliacao": 5,
+          "timestamp": "2026-04-25 20:25:42"
+        }
+      ]
+    },
+    {
+      "arquivo": "tec_1d_mind_1703165843_1081526_frame_0000.png",
+      "data": "21/12/2023",
+      "id": "tec",
+      "dedo": "Mindinho - Direita",
+      "erros": [
+        {
+          "nome": "Dedo Fora da Área",
+          "descricao": "Parte da digital ficou fora da área de captura.",
+          "avaliacao": 5,
+          "timestamp": "2026-04-25 20:26:06"
+        }
+      ]
+    },
+    {
+      "arquivo": "tec_2d_anel_1703165917_0821023_frame_0022.png",
+      "data": "21/12/2023",
+      "id": "tec",
+      "dedo": "Anelar - Direita",
+      "erros": [
+        {
+          "nome": "Segmentação Boa",
+          "descricao": "A Segmentação ficou excelente, poucos erros aparentes.",
+          "avaliacao": 4,
+          "timestamp": "2026-04-25 20:26:46"
+        }
+      ]
+    },
+    {
+      "arquivo": "tec_4d_indic_1703165690_0677896_frame_0000.png",
+      "data": "21/12/2023",
+      "id": "tec",
+      "dedo": "Indicador - Direita",
+      "erros": [
+        {
+          "nome": "Segmentação Boa",
+          "descricao": "A Segmentação ficou excelente, poucos erros aparentes.",
+          "avaliacao": 3,
+          "timestamp": "2026-04-25 20:27:38"
+        }
+      ]
+    },
+    {
+      "arquivo": "tec_5d_dedao_1703165768_185232_frame_0099.png",
+      "data": "21/12/2023",
+      "id": "tec",
+      "dedo": "Dedão - Direita",
+      "erros": [
+        {
+          "nome": "Segmentação Boa",
+          "descricao": "A Segmentação ficou excelente, poucos erros aparentes.",
+          "avaliacao": 5,
+          "timestamp": "2026-04-25 20:28:12"
+        }
+      ]
+    }
+  ]
+}

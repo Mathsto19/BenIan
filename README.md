@@ -14,29 +14,52 @@ O software serve para revisar e corrigir anotações de qualidade em imagens bio
 4. Ajustar rótulos e severidade.
 5. Exportar as correções em JSON e CSV.
 
+## Quick Start
+
+```powershell
+# 1. Vá para a pasta do código
+cd "Codigo Fonte"
+
+# 2. Instale as dependências
+pip install -r requirements.txt
+
+# 3. Execute o aplicativo
+python BenIan.py
+
+# 4. Use o exemplo fornecido
+#    Carregue: Codigo Fonte/exemplo/exemplo.zip
+#    Com rótulos de: Codigo Fonte/exemplo/exemplo.json
+```
+
+Para entender melhor, veja o `README.md` em `Codigo Fonte/exemplo/`.
+
 ## Estrutura
 
 ```text
 BenIan/
-|-- Codigo Fonte/
+|-- Codigo Fonte/              (código principal)
 |   |-- BenIan.py
 |   |-- requirements.txt
 |   |-- README.md
+|   |-- exemplo/               (exemplo completo com ZIP + JSON)
+|   |   |-- exemplo.zip
+|   |   |-- exemplo.json
+|   |   `-- README.md
 |   `-- Imagem/
 |       |-- icon.png
 |       `-- logo_texto.png
-|-- dados/
-|   `-- saida/
-|       |-- resultado_benian.json
-|       |-- revisoes.json
-|       |-- rotulos_confirmados.csv
-|       |-- rotulos_corrigir.csv
-|       `-- entrada/
+|-- Aplicativo/                (referência e exemplos)
+|   `-- exemplo/               (exemplo completo com ZIP + JSON)
+|       |-- exemplo.zip
+|       |-- exemplo.json
+|       `-- README.md
 |-- LICENSE
 `-- README.md
 ```
 
-Todo o código do aplicativo fica em `Codigo Fonte/BenIan.py`. As imagens (logo e ícone) estão em `Codigo Fonte/Imagem/` para melhor organização.
+O código fica em `Codigo Fonte/BenIan.py`. As imagens estão em `Codigo Fonte/Imagem/`.
+
+Para entender como usar, veja os exemplos em `Codigo Fonte/exemplo/` ou `Aplicativo/exemplo/`.
 
 ## Como rodar em desenvolvimento
 
@@ -64,25 +87,21 @@ O BenIan aceita:
 
 - Arquivo `.zip` com imagens.
 - Pasta com imagens.
-- Pasta de pacote contendo um `.zip` e `BENAPRO/resultado.json`.
-- `resultado.json` do BENAPRO/BENIAN, opcional.
+- `resultado.json` (anotações pré-existentes), opcional.
 - Seleção por diálogo local do Windows na tela de carregamento.
 
-Quando o pacote for ZIP, as imagens são extraídas para a pasta de saída em:
-
-```text
-dados/saida/entrada/pacotes
-```
+Para exemplos de formato, veja `Aplicativo/exemplo/`.
 
 ## Saídas
 
-Por padrão, o BenIan grava em `dados/saida`:
+Quando você salva anotações, o BenIan cria os arquivos de resultado:
 
-- `revisoes.json`: registro completo das revisões.
+- `revisoes.json`: registro completo das revisões (histórico).
 - `rotulos_confirmados.csv`: correções salvas como confirmadas.
 - `rotulos_corrigir.csv`: imagens marcadas para revisar depois.
-- `resultado_benian.json`: saída em formato próximo ao `resultado.json`.
-- `cache_visual/`: imagens temporárias usadas para filtros e camadas.
+- `resultado_benian.json`: saída em formato similar ao `resultado.json` de entrada.
+
+Os arquivos são salvos na pasta de saída que você especificar durante a execução.
 
 ## Atalhos
 
@@ -97,15 +116,3 @@ Por padrão, o BenIan grava em `dados/saida`:
 ## Logo
 
 Para trocar o texto `BenIan` por uma imagem sem fundo, coloque o arquivo como `logo_texto.png` em `Codigo Fonte/Imagem/`.
-
-## Gerar executável
-
-```powershell
-.\scripts\build_exe.ps1
-```
-
-O executável será gerado em:
-
-```text
-dist/BenIan.exe
-```
