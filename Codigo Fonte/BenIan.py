@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import csv
 import argparse
+import copy
 import hashlib
 import json
 import mimetypes
@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import unicodedata
 import webbrowser
@@ -31,8 +32,18 @@ def obter_raiz_aplicativo() -> Path:
     return Path(__file__).resolve().parent
 
 
+def obter_raiz_recursos() -> Path:
+    if getattr(sys, "frozen", False):
+        caminho_temporario = getattr(sys, "_MEIPASS", None)
+        if caminho_temporario:
+            return Path(caminho_temporario).resolve()
+
+    return Path(__file__).resolve().parent
+
+
 RAIZ_REPOSITORIO = obter_raiz_aplicativo()
-PASTA_SAIDA_PADRAO = RAIZ_REPOSITORIO / "dados" / "saida"
+RAIZ_RECURSOS = obter_raiz_recursos()
+PASTA_SAIDA_PADRAO = RAIZ_REPOSITORIO / "saida"
 
 ROTULO_SEGMENTACAO_BOA = "Segmentação Boa"
 
@@ -98,8 +109,6 @@ DEDOS = {
 }
 
 ARQUIVO_REVISOES = "revisoes.json"
-ARQUIVO_CONFIRMADOS = "rotulos_confirmados.csv"
-ARQUIVO_CORRIGIR = "rotulos_corrigir.csv"
 ARQUIVO_RESULTADO_BENIAN = "resultado_benian.json"
 
 
@@ -224,6 +233,18 @@ def aplicar_regras_rotulos(rotulos: list[str], severidades: dict[str, int] | Non
     return [rotulo for rotulo in ROTULOS if rotulo in selecionados]
 
 
+def normalizar_lista_rotulos(rotulos: list[str]) -> list[str]:
+    selecionados = []
+
+    for rotulo in rotulos:
+        normalizado = normalizar_rotulo(rotulo)
+
+        if normalizado in ROTULOS and normalizado not in selecionados:
+            selecionados.append(normalizado)
+
+    return selecionados
+
+
 def carregar_json(caminho: Path, padrao):
     if not caminho.exists():
         return padrao
@@ -237,6 +258,103 @@ def salvar_json(caminho: Path, dados) -> None:
 
     with caminho.open("w", encoding="utf-8") as arquivo:
         json.dump(dados, arquivo, ensure_ascii=False, indent=2)
+
+
+def criar_pasta_temporaria(prefixo: str) -> Path:
+    return Path(tempfile.mkdtemp(prefix=f"benian_{prefixo}_")).resolve()
+
+
+def pasta_cache_visual() -> Path:
+    caminho = Path(tempfile.gettempdir()) / "benian_cache_visual"
+    caminho.mkdir(parents=True, exist_ok=True)
+    return caminho
+
+
+def normalizar_severidade(valor, padrao: int = 1) -> int:
+    try:
+        severidade = int(valor)
+    except (TypeError, ValueError):
+        severidade = padrao
+
+    return max(1, min(5, severidade))
+
+
+def rotulos_de_anotacoes(anotacoes: list[Anotacao]) -> list[str]:
+    rotulos = []
+
+    for anotacao in anotacoes:
+        rotulo = normalizar_rotulo(anotacao.nome)
+
+        if rotulo in ROTULOS and rotulo not in rotulos:
+            rotulos.append(rotulo)
+
+    return rotulos
+
+
+def severidades_de_anotacoes(anotacoes: list[Anotacao]) -> dict[str, int]:
+    severidades = {}
+
+    for anotacao in anotacoes:
+        rotulo = normalizar_rotulo(anotacao.nome)
+
+        if rotulo in ROTULOS:
+            severidades[rotulo] = normalizar_severidade(anotacao.avaliacao)
+
+    return severidades
+
+
+def comparar_revisao(
+    rotulos_originais: list[str],
+    severidades_originais: dict[str, int],
+    rotulos_corrigidos: list[str],
+    severidades_corrigidas: dict[str, int],
+) -> dict:
+    originais = set(rotulos_originais)
+    corrigidos = set(rotulos_corrigidos)
+    mantidos = [rotulo for rotulo in rotulos_corrigidos if rotulo in originais]
+    adicionados = [rotulo for rotulo in rotulos_corrigidos if rotulo not in originais]
+    removidos = [rotulo for rotulo in rotulos_originais if rotulo not in corrigidos]
+    severidades_alteradas = {}
+
+    for rotulo in mantidos:
+        original = normalizar_severidade(severidades_originais.get(rotulo))
+        corrigida = normalizar_severidade(severidades_corrigidas.get(rotulo))
+
+        if original != corrigida:
+            severidades_alteradas[rotulo] = {
+                "original": original,
+                "corrigida": corrigida,
+            }
+
+    houve_alteracao = bool(adicionados or removidos or severidades_alteradas)
+
+    return {
+        "houve_alteracao": houve_alteracao,
+        "resultado": "alterado" if houve_alteracao else "mantido",
+        "adicionados": adicionados,
+        "removidos": removidos,
+        "mantidos": mantidos,
+        "severidades_alteradas": severidades_alteradas,
+    }
+
+
+def resumir_mudancas(mudancas: dict) -> str:
+    partes = []
+
+    if mudancas.get("adicionados"):
+        partes.append("Adicionou rotulos: " + ", ".join(mudancas["adicionados"]))
+
+    if mudancas.get("removidos"):
+        partes.append("Removeu rotulos: " + ", ".join(mudancas["removidos"]))
+
+    if mudancas.get("severidades_alteradas"):
+        rotulos = ", ".join(mudancas["severidades_alteradas"].keys())
+        partes.append("Alterou severidade: " + rotulos)
+
+    if not partes:
+        return "Nao sofreu alteracoes."
+
+    return "; ".join(partes) + "."
 
 
 def nome_seguro(texto: str) -> str:
@@ -392,14 +510,14 @@ def carregar_pacote(origem: Path, pasta_saida: Path, resultado_original: Path | 
         if origem.suffix.lower() != ".zip":
             raise ValueError("Selecione um arquivo .zip ou uma pasta com imagens.")
 
-        pasta_trabalho = extrair_zip(origem, pasta_saida / "entrada" / "pacotes")
+        pasta_trabalho = extrair_zip(origem, criar_pasta_temporaria("entrada"))
         nome_pacote = origem.name
     elif origem.is_dir():
         imagens_existentes = listar_imagens(origem)
         zips = sorted(origem.glob("*.zip"))
 
         if not imagens_existentes and zips:
-            pasta_trabalho = extrair_zip(zips[0], pasta_saida / "entrada" / "pacotes")
+            pasta_trabalho = extrair_zip(zips[0], criar_pasta_temporaria("entrada"))
             nome_pacote = zips[0].name
         else:
             pasta_trabalho = origem
@@ -464,16 +582,15 @@ def carregar_revisoes(pasta_saida: Path) -> dict[str, dict]:
 
 
 def salvar_revisoes(pasta_saida: Path, revisoes: dict[str, dict]) -> None:
-    salvar_json(pasta_saida / ARQUIVO_REVISOES, revisoes)
-
-
-def escrever_csv(caminho: Path, linhas: list[dict], campos: list[str]) -> None:
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-
-    with caminho.open("w", newline="", encoding="utf-8-sig") as arquivo:
-        escritor = csv.DictWriter(arquivo, fieldnames=campos, extrasaction="ignore")
-        escritor.writeheader()
-        escritor.writerows(linhas)
+    dados = sorted(
+        revisoes.values(),
+        key=lambda revisao: (
+            str(revisao.get("pacote", "")),
+            str(revisao.get("arquivo", "")),
+            str(revisao.get("id", "")),
+        ),
+    )
+    salvar_json(pasta_saida / ARQUIVO_REVISOES, dados)
 
 
 def criar_revisao(
@@ -483,15 +600,28 @@ def criar_revisao(
     rotulos: list[str],
     severidades: dict[str, int],
 ) -> dict:
-    rotulos_corrigidos = aplicar_regras_rotulos(rotulos, severidades)
+    rotulos_corrigidos = normalizar_lista_rotulos(rotulos)
     severidades_corrigidas = {
-        rotulo: int(severidades.get(rotulo, 0))
+        rotulo: normalizar_severidade(severidades.get(rotulo))
         for rotulo in rotulos_corrigidos
     }
+    rotulos_originais = normalizar_lista_rotulos(rotulos_de_anotacoes(item.anotacao_original))
+    severidades_originais = {
+        rotulo: normalizar_severidade(severidades_de_anotacoes(item.anotacao_original).get(rotulo))
+        for rotulo in rotulos_originais
+    }
+    mudancas = comparar_revisao(
+        rotulos_originais=rotulos_originais,
+        severidades_originais=severidades_originais,
+        rotulos_corrigidos=rotulos_corrigidos,
+        severidades_corrigidas=severidades_corrigidas,
+    )
+    alteracao = "sofreu_alteracoes" if mudancas["houve_alteracao"] else "nao_sofreu_alteracoes"
 
     return {
         "id": item.id,
         "pacote": pacote,
+        "imagem": item.arquivo,
         "chave": item.chave,
         "arquivo": item.arquivo,
         "caminho_imagem": str(item.caminho_principal),
@@ -505,8 +635,21 @@ def criar_revisao(
             }
             for anotacao in item.anotacao_original
         ],
+        "rotulos_originais": rotulos_originais,
+        "severidades_originais": severidades_originais,
         "rotulos_corrigidos": rotulos_corrigidos,
         "severidades": severidades_corrigidas,
+        "salvo": True,
+        "houve_alteracao": mudancas["houve_alteracao"],
+        "alteracao": alteracao,
+        "resultado_rotulos": alteracao,
+        "resumo": resumir_mudancas(mudancas),
+        "mudancas": {
+            "adicionados": mudancas["adicionados"],
+            "removidos": mudancas["removidos"],
+            "mantidos": mudancas["mantidos"],
+            "severidades_alteradas": mudancas["severidades_alteradas"],
+        },
         "revisado_em": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -515,101 +658,301 @@ def salvar_revisao(
     pasta_saida: Path,
     revisoes: dict[str, dict],
     item: ItemImagem,
-    pacote: str,
+    pacote: PacoteCarregado,
     status: str,
     rotulos: list[str],
     severidades: dict[str, int],
 ) -> dict:
-    revisao = criar_revisao(item, pacote, status, rotulos, severidades)
+    revisao = criar_revisao(item, pacote.nome, status, rotulos, severidades)
     revisoes[item.id] = revisao
     salvar_revisoes(pasta_saida, revisoes)
-    exportar_resultados(pasta_saida, revisoes)
+    exportar_resultado_benian(pasta_saida, revisoes, pacote)
     return revisao
 
 
-def exportar_resultados(pasta_saida: Path, revisoes: dict[str, dict]) -> None:
-    confirmados = []
-    corrigir = []
+def rotulo_de_erro_resultado(erro) -> str:
+    if isinstance(erro, str):
+        return normalizar_rotulo(erro)
 
-    for revisao in revisoes.values():
-        rotulos = list(revisao.get("rotulos_corrigidos", []))
-        severidades = dict(revisao.get("severidades", {}))
-        metadados = dict(revisao.get("metadados", {}))
-        linha = {
-            "id": revisao.get("id", ""),
-            "pacote": revisao.get("pacote", ""),
-            "chave_amostra": revisao.get("chave", ""),
-            "arquivo": revisao.get("arquivo", ""),
-            "id_paciente": metadados.get("id", ""),
-            "dedo": metadados.get("dedo", ""),
-            "frame": metadados.get("frame", ""),
-            "caminho_imagem": revisao.get("caminho_imagem", ""),
-            "status_revisao": revisao.get("status", ""),
-            "rotulos_corrigidos": "; ".join(rotulos),
-            "quantidade_rotulos": len(rotulos),
-            "revisado_em": revisao.get("revisado_em", ""),
+    if isinstance(erro, dict):
+        return normalizar_rotulo(erro.get("nome") or erro.get("rotulo"))
+
+    return ""
+
+
+def timestamp_dos_erros(erros: list) -> str:
+    for erro in erros:
+        if not isinstance(erro, dict):
+            continue
+
+        timestamp = str(erro.get("timestamp") or "")
+
+        if timestamp:
+            return timestamp
+
+    return ""
+
+
+def modelo_de_erro(erros: list) -> dict:
+    for erro in erros:
+        if isinstance(erro, dict):
+            return copy.deepcopy(erro)
+
+    return {}
+
+
+def definir_nome_erro(erro: dict, rotulo: str) -> None:
+    if "nome" in erro or "rotulo" not in erro:
+        erro["nome"] = rotulo
+
+    if "rotulo" in erro:
+        erro["rotulo"] = rotulo
+
+
+def erro_novo_para_resultado(rotulo: str, severidade: int, erros_originais: list, revisao: dict, usar_dict: bool):
+    if not usar_dict:
+        return rotulo
+
+    erro = modelo_de_erro(erros_originais)
+    timestamp = timestamp_dos_erros(erros_originais) or str(revisao.get("revisado_em") or "")
+
+    if not erro:
+        erro = {
+            "nome": rotulo,
+            "descricao": DESCRICOES_ROTULOS.get(rotulo, ""),
+            "avaliacao": normalizar_severidade(severidade),
         }
+    else:
+        definir_nome_erro(erro, rotulo)
 
-        for rotulo in ROTULOS:
-            linha[rotulo] = int(rotulo in rotulos)
-            linha[f"{rotulo}_severidade"] = severidades.get(rotulo, "")
+        if "descricao" in erro:
+            erro["descricao"] = DESCRICOES_ROTULOS.get(rotulo, "")
 
-        if revisao.get("status") == "corrigir":
-            corrigir.append(linha)
-        else:
-            confirmados.append(linha)
+        erro["avaliacao"] = normalizar_severidade(severidade)
 
-    campos = [
-        "id",
-        "pacote",
-        "chave_amostra",
-        "arquivo",
-        "id_paciente",
-        "dedo",
-        "frame",
-        "caminho_imagem",
-        "status_revisao",
-        "rotulos_corrigidos",
-        "quantidade_rotulos",
-        "revisado_em",
-    ]
+    if timestamp or "timestamp" in erro:
+        erro["timestamp"] = timestamp
 
-    for rotulo in ROTULOS:
-        campos.extend([rotulo, f"{rotulo}_severidade"])
-
-    escrever_csv(pasta_saida / ARQUIVO_CONFIRMADOS, confirmados, campos)
-    escrever_csv(pasta_saida / ARQUIVO_CORRIGIR, corrigir, campos)
-    exportar_resultado_benian(pasta_saida, revisoes)
+    return erro
 
 
-def exportar_resultado_benian(pasta_saida: Path, revisoes: dict[str, dict]) -> None:
-    por_pacote: dict[str, list[dict]] = {}
+def erro_existente_para_resultado(erro, severidade: int):
+    if not isinstance(erro, dict):
+        return erro
 
-    for revisao in revisoes.values():
-        pacote = str(revisao.get("pacote") or "pacote")
-        rotulos = list(revisao.get("rotulos_corrigidos", []))
-        severidades = dict(revisao.get("severidades", {}))
-        metadados = dict(revisao.get("metadados", {}))
-        erros = []
+    atualizado = copy.deepcopy(erro)
 
-        for rotulo in rotulos:
-            erros.append({
-                "nome": rotulo,
-                "descricao": DESCRICOES_ROTULOS.get(rotulo, ""),
-                "avaliacao": severidades.get(rotulo, 1),
-                "timestamp": revisao.get("revisado_em", ""),
-            })
+    if "avaliacao" in atualizado:
+        atualizado["avaliacao"] = normalizar_severidade(severidade)
 
-        por_pacote.setdefault(pacote, []).append({
-            "arquivo": revisao.get("arquivo", ""),
-            "id": metadados.get("id") or revisao.get("chave", ""),
-            "dedo": metadados.get("dedo", ""),
-            "frame": metadados.get("frame", ""),
-            "status_revisao": revisao.get("status", ""),
-            "erros": erros,
+    return atualizado
+
+
+def lista_erros_corrigida(erros_originais: list, revisao: dict, usar_dict: bool) -> list:
+    rotulos_corrigidos = list(revisao.get("rotulos_corrigidos", []))
+    corrigidos = set(rotulos_corrigidos)
+    severidades = dict(revisao.get("severidades", {}))
+    atualizados = []
+    usados = set()
+
+    for erro in erros_originais:
+        rotulo = rotulo_de_erro_resultado(erro)
+
+        if not rotulo or rotulo not in ROTULOS:
+            atualizados.append(copy.deepcopy(erro))
+            continue
+
+        if rotulo not in corrigidos or rotulo in usados:
+            continue
+
+        atualizados.append(erro_existente_para_resultado(erro, severidades.get(rotulo)))
+        usados.add(rotulo)
+
+    for rotulo in rotulos_corrigidos:
+        if rotulo in usados:
+            continue
+
+        atualizados.append(erro_novo_para_resultado(
+            rotulo=rotulo,
+            severidade=severidades.get(rotulo),
+            erros_originais=erros_originais,
+            revisao=revisao,
+            usar_dict=usar_dict,
+        ))
+        usados.add(rotulo)
+
+    return atualizados
+
+
+def erros_para_resultado(revisao: dict) -> list[dict]:
+    severidades = dict(revisao.get("severidades", {}))
+    erros = []
+
+    for rotulo in list(revisao.get("rotulos_corrigidos", [])):
+        erros.append({
+            "nome": rotulo,
+            "descricao": DESCRICOES_ROTULOS.get(rotulo, ""),
+            "avaliacao": normalizar_severidade(severidades.get(rotulo)),
+            "timestamp": revisao.get("revisado_em", ""),
         })
 
-    salvar_json(pasta_saida / ARQUIVO_RESULTADO_BENIAN, por_pacote)
+    return erros
+
+
+def item_resultado_de_revisao(revisao: dict) -> dict:
+    metadados = dict(revisao.get("metadados", {}))
+
+    return {
+        "arquivo": revisao.get("arquivo", ""),
+        "id": metadados.get("id") or revisao.get("chave", ""),
+        "dedo": metadados.get("dedo", ""),
+        "frame": metadados.get("frame", ""),
+        "erros": erros_para_resultado(revisao),
+    }
+
+
+def chaves_revisao_resultado(revisao: dict) -> set[str]:
+    arquivo = str(revisao.get("arquivo") or "")
+    chave = str(revisao.get("chave") or "")
+    chaves = {chave}
+
+    if arquivo:
+        nome = Path(arquivo).name
+        chaves.add(nome)
+        chaves.add(chave_sem_camada(Path(nome)))
+
+    return {valor for valor in chaves if valor}
+
+
+def chaves_item_resultado(item: dict) -> set[str]:
+    arquivo = str(item.get("arquivo") or item.get("nome_arquivo") or "")
+    chaves = set()
+
+    if arquivo:
+        nome = Path(arquivo).name
+        chaves.add(nome)
+        chaves.add(chave_sem_camada(Path(nome)))
+
+    return {valor for valor in chaves if valor}
+
+
+def iterar_listas_resultado(dados) -> list[tuple[str, list]]:
+    if isinstance(dados, list):
+        return [("", dados)]
+
+    if isinstance(dados, dict):
+        return [
+            (str(chave), valor)
+            for chave, valor in dados.items()
+            if isinstance(valor, list)
+        ]
+
+    return []
+
+
+def escolher_lista_resultado_para_novos(dados, pacote_nome: str) -> list | None:
+    if isinstance(dados, list):
+        return dados
+
+    if not isinstance(dados, dict):
+        return None
+
+    if pacote_nome and isinstance(dados.get(pacote_nome), list):
+        return dados[pacote_nome]
+
+    listas = iterar_listas_resultado(dados)
+
+    if len(listas) == 1:
+        return listas[0][1]
+
+    chave = pacote_nome or "pacote"
+
+    if not isinstance(dados.get(chave), list):
+        dados[chave] = []
+
+    return dados[chave]
+
+
+def atualizar_item_resultado(item: dict, revisao: dict) -> None:
+    if "erros" in item:
+        erros_originais = item.get("erros", [])
+
+        if not isinstance(erros_originais, list):
+            erros_originais = []
+
+        item["erros"] = lista_erros_corrigida(
+            erros_originais=erros_originais,
+            revisao=revisao,
+            usar_dict=any(isinstance(erro, dict) for erro in erros_originais) or not erros_originais,
+        )
+        return
+
+    if "rotulos" in item:
+        rotulos_originais = item.get("rotulos", [])
+
+        if not isinstance(rotulos_originais, list):
+            rotulos_originais = []
+
+        item["rotulos"] = lista_erros_corrigida(
+            erros_originais=rotulos_originais,
+            revisao=revisao,
+            usar_dict=any(isinstance(rotulo, dict) for rotulo in rotulos_originais),
+        )
+        return
+
+    item["erros"] = erros_para_resultado(revisao)
+
+
+def carregar_resultado_original(pacote: PacoteCarregado | None):
+    if pacote is None or pacote.resultado_original is None or not pacote.resultado_original.exists():
+        return {}
+
+    dados = carregar_json(pacote.resultado_original, {})
+
+    if isinstance(dados, (dict, list)):
+        return copy.deepcopy(dados)
+
+    return {}
+
+
+def exportar_resultado_benian(
+    pasta_saida: Path,
+    revisoes: dict[str, dict],
+    pacote: PacoteCarregado | None = None,
+) -> None:
+    resultado = carregar_resultado_original(pacote)
+    aplicadas: set[str] = set()
+
+    for _, itens in iterar_listas_resultado(resultado):
+        for item in itens:
+            if not isinstance(item, dict):
+                continue
+
+            chaves_item = chaves_item_resultado(item)
+
+            for id_revisao, revisao in revisoes.items():
+                if id_revisao in aplicadas:
+                    continue
+
+                if chaves_item & chaves_revisao_resultado(revisao):
+                    atualizar_item_resultado(item, revisao)
+                    aplicadas.add(id_revisao)
+                    break
+
+    destino_novos = escolher_lista_resultado_para_novos(
+        resultado,
+        pacote.nome if pacote else "",
+    )
+
+    if destino_novos is None:
+        resultado = {}
+        destino_novos = escolher_lista_resultado_para_novos(resultado, pacote.nome if pacote else "")
+
+    for id_revisao, revisao in revisoes.items():
+        if id_revisao not in aplicadas:
+            destino_novos.append(item_resultado_de_revisao(revisao))
+
+    salvar_json(pasta_saida / ARQUIVO_RESULTADO_BENIAN, resultado)
 
 def extrair_camada_rgba(imagem: Image.Image, camada: str) -> Image.Image:
     rgba = imagem.convert("RGBA")
@@ -632,7 +975,7 @@ def aplicar_filtro_visual(imagem: Image.Image, filtro: str) -> Image.Image:
     return rgb
 
 
-def preparar_visualizacao(item: ItemImagem, pasta_saida: Path, camada: str, filtro: str) -> Path:
+def preparar_visualizacao(item: ItemImagem, camada: str, filtro: str) -> Path:
     camada = camada if camada in {"original", "1", "2", "3", "4"} else "1"
     filtro = filtro if filtro in {"normal", "invertido", "contraste", "claro", "escuro"} else "normal"
     caminho_base = item.caminho_principal
@@ -648,7 +991,7 @@ def preparar_visualizacao(item: ItemImagem, pasta_saida: Path, camada: str, filt
             imagem = extrair_camada_rgba(imagem, camada)
 
     imagem = aplicar_filtro_visual(imagem, filtro)
-    destino = pasta_saida / "cache_visual" / f"{item.id}_{camada}_{filtro}.png"
+    destino = pasta_cache_visual() / f"{item.id}_{camada}_{filtro}.png"
     destino.parent.mkdir(parents=True, exist_ok=True)
     imagem.save(destino)
     return destino
@@ -674,7 +1017,10 @@ class EstadoWeb:
         self.pacote = pacote
         self.pasta_saida = pasta_saida.resolve()
         self.revisoes = carregar_revisoes(self.pasta_saida)
-        exportar_resultados(self.pasta_saida, self.revisoes)
+
+        if self.revisoes:
+            exportar_resultado_benian(self.pasta_saida, self.revisoes, pacote)
+
         self.ultima_mensagem = f"Pacote carregado: {pacote.nome}"
 
     def item_por_id(self, id_item: str) -> ItemImagem | None:
@@ -703,7 +1049,7 @@ class EstadoWeb:
             pasta_saida=self.pasta_saida,
             revisoes=self.revisoes,
             item=item,
-            pacote=self.pacote.nome,
+            pacote=self.pacote,
             status=status,
             rotulos=rotulos,
             severidades=severidades,
@@ -762,8 +1108,6 @@ class EstadoWeb:
             "pasta_saida": str(self.pasta_saida),
             "saida": {
                 "revisoes": str(self.pasta_saida / ARQUIVO_REVISOES),
-                "confirmados": str(self.pasta_saida / ARQUIVO_CONFIRMADOS),
-                "corrigir": str(self.pasta_saida / ARQUIVO_CORRIGIR),
                 "resultado_benian": str(self.pasta_saida / ARQUIVO_RESULTADO_BENIAN),
             },
             "itens": [self.item_json(item) for item in self.pacote.itens] if self.pacote else [],
@@ -952,49 +1296,6 @@ HTML = r"""<!doctype html>
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-    .image-navigation {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      padding: 16px 12px;
-      background: #0f1419;
-      border-top: 1px solid var(--line);
-    }
-    .nav-arrow {
-      width: 44px;
-      height: 44px;
-      border: 2px solid var(--accent);
-      background: transparent;
-      color: var(--accent);
-      font-size: 20px;
-      cursor: pointer;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-    }
-    .nav-arrow:hover:not(:disabled) {
-      background: var(--accent-soft);
-      transform: scale(1.1);
-    }
-    .nav-arrow:active:not(:disabled) {
-      transform: scale(0.95);
-    }
-    .nav-arrow:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-      border-color: #556a7a;
-      color: #556a7a;
-    }
-    .nav-position {
-      color: #b9d8ed;
-      font-weight: 600;
-      font-size: 14px;
-      min-width: 60px;
-      text-align: center;
     }
     .side {
       overflow: auto;
@@ -1229,11 +1530,6 @@ HTML = r"""<!doctype html>
       <div class="image-wrap" id="imageWrap">
         <div class="empty">Nenhum pacote carregado.</div>
       </div>
-      <div class="image-navigation">
-        <button id="navPrevBtn" class="nav-arrow nav-prev" title="Imagem anterior (←)">◀</button>
-        <span id="navPosition" class="nav-position"></span>
-        <button id="navNextBtn" class="nav-arrow nav-next" title="Próxima imagem (→)">▶</button>
-      </div>
       <div class="footer">
         <span id="imageName"></span>
         <span id="position"></span>
@@ -1244,11 +1540,10 @@ HTML = r"""<!doctype html>
       <div class="summary">
         <div class="metric"><span>Total</span><strong id="mTotal">0</strong></div>
         <div class="metric"><span>Confirmadas</span><strong id="mOk">0</strong></div>
-        <div class="metric"><span>Corrigir</span><strong id="mBad">0</strong></div>
+        <div class="metric"><span>Pendentes</span><strong id="mBad">0</strong></div>
       </div>
       <div class="actions">
-        <button class="ok" id="acceptBtn">Sim - salvar</button>
-        <button class="bad" id="rejectBtn">Não - depois</button>
+        <button class="ok" id="acceptBtn">Salvar revisão</button>
         <button class="original-btn" id="originalBtn">Original</button>
         <button class="clear-btn" id="clearBtn">Limpar</button>
         <span class="status" id="status">pendente</span>
@@ -1398,7 +1693,7 @@ HTML = r"""<!doctype html>
       const metricas = state.metricas || {};
       el("mTotal").textContent = metricas.total || 0;
       el("mOk").textContent = metricas.confirmado || 0;
-      el("mBad").textContent = metricas.corrigir || 0;
+      el("mBad").textContent = metricas.pendente || 0;
       const pacote = state.pacote ? state.pacote.nome : "sem pacote";
       el("headerInfo").textContent = `${metricas.pendente || 0} pendentes | ${pacote}`;
     }
@@ -1408,12 +1703,11 @@ HTML = r"""<!doctype html>
       el("imageWrap").innerHTML = '<div class="empty">Nenhum pacote carregado.</div>';
       el("imageName").textContent = "";
       el("position").textContent = "";
-      el("navPosition").textContent = "";
       el("labels").innerHTML = "";
       el("status").textContent = "vazio";
       el("status").className = "status";
       el("paths").textContent = "";
-      ["prevBtn", "nextBtn", "navPrevBtn", "navNextBtn", "acceptBtn", "rejectBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = true);
+      ["prevBtn", "nextBtn", "acceptBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = true);
     }
 
     function itemDraft(item) {
@@ -1421,7 +1715,7 @@ HTML = r"""<!doctype html>
         const originais = (item.anotacao_original || [])
           .map((anotacao) => anotacao.nome)
           .filter((rotulo) => state.rotulos.includes(rotulo));
-        const rotulos = (item.rotulos_corrigidos && item.rotulos_corrigidos.length)
+        const rotulos = Array.isArray(item.rotulos_corrigidos)
           ? item.rotulos_corrigidos
           : originais;
         const severidades = { ...(item.severidades || {}) };
@@ -1596,12 +1890,9 @@ HTML = r"""<!doctype html>
       el("image").onload = () => applyZoom();
       el("imageName").textContent = item.arquivo || item.chave || "";
       el("position").textContent = `${index + 1} / ${state.itens.length}`;
-      el("navPosition").textContent = `${index + 1} / ${state.itens.length}`;
       el("prevBtn").disabled = index <= 0;
       el("nextBtn").disabled = index >= state.itens.length - 1;
-      el("navPrevBtn").disabled = index <= 0;
-      el("navNextBtn").disabled = index >= state.itens.length - 1;
-      ["acceptBtn", "rejectBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = false);
+      ["acceptBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = false);
 
       const status = item.status_revisao || "pendente";
       el("status").textContent = status === "corrigir" ? "revisar depois" : status === "pendente" ? "" : status;
@@ -1719,10 +2010,7 @@ HTML = r"""<!doctype html>
     el("chooseOutputBtn").onclick = () => escolherCaminho("saida", "outputPath");
     el("prevBtn").onclick = () => mudarIndice(index - 1);
     el("nextBtn").onclick = () => mudarIndice(index + 1);
-    el("navPrevBtn").onclick = () => mudarIndice(index - 1);
-    el("navNextBtn").onclick = () => mudarIndice(index + 1);
     el("acceptBtn").onclick = () => save("confirmado").catch((error) => toast(error.message, true));
-    el("rejectBtn").onclick = () => save("corrigir").catch((error) => toast(error.message, true));
     el("originalBtn").onclick = usarOriginal;
     el("clearBtn").onclick = limparRotulos;
     el("zoomOutBtn").onclick = () => setZoom(zoom / 1.25);
@@ -1772,7 +2060,6 @@ HTML = r"""<!doctype html>
       if (["1", "2"].includes(event.key)) mudarCamada(event.key);
       if (event.key.toLowerCase() === "o") mudarCamada("original");
       if (event.key.toLowerCase() === "s") save("confirmado").catch((error) => toast(error.message, true));
-      if (event.key.toLowerCase() === "n") save("corrigir").catch((error) => toast(error.message, true));
       if (event.key === "ArrowLeft" && index > 0) mudarIndice(index - 1);
       if (event.key === "ArrowRight" && index < state.itens.length - 1) mudarIndice(index + 1);
       if (event.key === "+" || event.key === "=") setZoom(zoom * 1.25);
@@ -1790,42 +2077,57 @@ HTML = r"""<!doctype html>
 """
 
 
-def localizar_logo() -> Path | None:
-    candidatos = [
-      RAIZ_REPOSITORIO / "Imagens" / "logo_texto.png",
-      RAIZ_REPOSITORIO / "logo_texto.png",
-      RAIZ_REPOSITORIO / "logo_texto.png",
-      RAIZ_REPOSITORIO / "logo.png",
-      RAIZ_REPOSITORIO / "logo_benian.png",
-      RAIZ_REPOSITORIO / "benian_logo.png",
-      RAIZ_REPOSITORIO / "dados" / "logo_texto.png",
-      RAIZ_REPOSITORIO / "dados" / "icon.png",
-      RAIZ_REPOSITORIO / "dados" / "logo_benian.png",
-      RAIZ_REPOSITORIO / "assets" / "logo_texto.png",
-      RAIZ_REPOSITORIO / "assets" / "logo.png",
-      RAIZ_REPOSITORIO / "assets" / "logo_benian.png",
-  ]
+def bases_recursos() -> list[Path]:
+    bases: list[Path] = []
+    for base in (RAIZ_RECURSOS, RAIZ_REPOSITORIO):
+        if base not in bases:
+            bases.append(base)
+    return bases
 
-    for candidato in candidatos:
-        if candidato.exists() and candidato.is_file():
-            return candidato
+
+def localizar_logo() -> Path | None:
+    caminhos_relativos = [
+        Path("Imagens") / "logo_texto.png",
+        Path("logo_texto.png"),
+        Path("logo.png"),
+        Path("logo_benian.png"),
+        Path("benian_logo.png"),
+        Path("dados") / "logo_texto.png",
+        Path("dados") / "icon.png",
+        Path("dados") / "logo_benian.png",
+        Path("assets") / "logo_texto.png",
+        Path("assets") / "logo.png",
+        Path("assets") / "logo_benian.png",
+    ]
+
+    for base in bases_recursos():
+        for caminho_relativo in caminhos_relativos:
+            candidato = base / caminho_relativo
+            if candidato.exists() and candidato.is_file():
+                return candidato
 
     return None
+
 
 def localizar_icon() -> Path | None:
-    candidatos = [
-        RAIZ_REPOSITORIO / "Imagem" / "icon.jpg",
-        RAIZ_REPOSITORIO / "Imagem" / "icon.png",
-        RAIZ_REPOSITORIO / "icon.jpg",
-        RAIZ_REPOSITORIO / "icon.png",
-        RAIZ_REPOSITORIO / "favicon.ico",
-        RAIZ_REPOSITORIO / "assets" / "icon.jpg",
-        RAIZ_REPOSITORIO / "assets" / "icon.png",
+    caminhos_relativos = [
+        Path("Imagens") / "icon.jpg",
+        Path("Imagens") / "icon.png",
+        Path("Imagem") / "icon.jpg",
+        Path("Imagem") / "icon.png",
+        Path("icon.jpg"),
+        Path("icon.png"),
+        Path("favicon.ico"),
+        Path("assets") / "icon.jpg",
+        Path("assets") / "icon.png",
     ]
-    for candidato in candidatos:
-        if candidato.exists() and candidato.is_file():
-            return candidato
+    for base in bases_recursos():
+        for caminho_relativo in caminhos_relativos:
+            candidato = base / caminho_relativo
+            if candidato.exists() and candidato.is_file():
+                return candidato
     return None
+
 
 def escolher_caminho(tipo: str) -> str:
     import tkinter as tk
@@ -1931,7 +2233,6 @@ class Handler(BaseHTTPRequestHandler):
 
                 caminho = preparar_visualizacao(
                     item=item,
-                    pasta_saida=self.estado.pasta_saida,
                     camada=params.get("camada", ["1"])[0],
                     filtro=params.get("filtro", ["normal"])[0],
                 )

@@ -1,0 +1,201 @@
+BENIAN - Software para Revisao de Anotacoes de Imagens Biometricas
+
+Bem-vindo ao BenIan
+
+O BenIan e um software desenvolvido para revisao, correcao e padronizacao
+de anotacoes de qualidade em imagens biometricas, com foco em impressoes
+digitais neonatais.
+
+Seu objetivo e permitir que o avaliador confira imagem por imagem, ajuste os
+rotulos de qualidade, informe severidades e gere arquivos JSON revisados para
+uso em pesquisa cientifica, avaliacao de bases biometricas e auditoria de
+anotacoes.
+
+
+Como Utilizar o BenIan
+
+1. Inicializacao do Software
+
+Execute o arquivo BenIan.exe na pasta do aplicativo.
+
+Caso o antivirus ou o Windows bloqueie a execucao, clique em "Mais informacoes"
+e depois em "Executar assim mesmo".
+
+Ao iniciar, o BenIan cria um servidor local em 127.0.0.1 e abre a interface no
+navegador em modo aplicativo. Os dados sao processados localmente, sem envio
+para servidor externo.
+
+Se a versao recebida nao tiver BenIan.exe, use a execucao pelo codigo fonte:
+
+cd "..\Codigo Fonte"
+python -m pip install -r requirements.txt
+python BenIan.py
+
+
+2. Carregamento das Imagens
+
+Clique em "Carregar".
+
+No campo "Pacote", selecione um arquivo .zip ou uma pasta contendo as imagens
+a serem revisadas.
+
+O sistema aceita imagens nos formatos:
+- .png
+- .jpg
+- .jpeg
+- .bmp
+- .tif
+- .tiff
+- .webp
+
+Para testar o programa, use o pacote de exemplo:
+
+exemplo\exemplo.zip
+
+
+3. Carregamento de Anotacoes Existentes
+
+O campo "Resultado JSON" e opcional.
+
+Quando existir um arquivo com anotacoes anteriores, selecione o JSON
+correspondente. Esse arquivo e usado como base para exibir os rotulos originais
+e permitir a revisao.
+
+Para testar com o exemplo incluido, use:
+
+exemplo\exemplo.json
+
+Quando possivel, o programa tambem tenta identificar informacoes como arquivo,
+ID, dedo e frame a partir dos nomes das imagens e dos dados do JSON.
+
+
+4. Escolha da Pasta de Saida
+
+Selecione a pasta onde os resultados revisados deverao ser salvos.
+
+Se nenhuma pasta for escolhida, a saida padrao fica em uma pasta chamada
+"saida" ao lado do aplicativo.
+
+
+5. Navegacao e Visualizacao
+
+Use os botoes "Anterior" e "Proxima" para navegar entre as imagens.
+
+Tambem e possivel navegar com as setas esquerda e direita do teclado.
+
+Manipulacao da imagem:
+- Zoom: use a rolagem do mouse, os botoes "+" e "-" ou os atalhos do teclado.
+- Resetar zoom: use o botao "100%" ou a tecla 0.
+- Mover visualizacao: clique e arraste quando a imagem estiver ampliada.
+
+
+6. Camadas de Visualizacao
+
+Use os botoes de visualizacao para alternar entre a imagem original e as
+camadas disponiveis.
+
+Atalhos de camada:
+- 1: Camada 1
+- 2: Camada 2
+- 3: Camada 3, quando disponivel
+- 4: Camada 4, quando disponivel
+- O: Imagem original
+
+O BenIan reconhece arquivos auxiliares com sufixos de camada A, B, C e D quando
+eles estiverem presentes no pacote de imagens.
+
+
+7. Revisao dos Rotulos
+
+No painel lateral, confira os rotulos originais e marque os rotulos finais da
+imagem atual.
+
+Rotulos padrao disponiveis:
+- Digital Clara
+- Digital Escura
+- Dedo Fora da Area
+- Fiapos
+- Fora de Foco
+- Manchas
+- Scanner Sujo
+- Segmentacao Boa
+- Sem Padrao Visivel
+
+Cada rotulo selecionado pode receber severidade de 1 a 5.
+
+Use "Original" para restaurar os rotulos importados do JSON.
+
+Use "Limpar" para remover os rotulos selecionados.
+
+
+8. Salvamento da Revisao
+
+Clique em "Salvar revisao" apos concluir a correcao da imagem atual.
+
+O sistema grava os dados na pasta de saida selecionada e tenta avancar para a
+proxima imagem pendente.
+
+Arquivos gerados:
+
+- revisoes.json
+  Historico completo das revisoes feitas no BenIan, incluindo arquivo, pacote,
+  rotulos originais, rotulos corrigidos, severidades, status e horario da
+  revisao.
+
+- resultado_benian.json
+  JSON revisado no mesmo formato base do resultado carregado, com os rotulos
+  corrigidos e pronto para reutilizacao em analises posteriores.
+
+
+9. Recursos Extras
+
+- Tecla Esc: abre ou fecha a confirmacao de saida.
+- Setas esquerda/direita: navegam entre imagens.
+- Tecla S: salva a revisao da imagem atual.
+- Teclas + ou =: aumentam o zoom.
+- Teclas - ou _: diminuem o zoom.
+- Tecla 0: restaura o zoom para 100%.
+- Roda do mouse: controla o zoom.
+- Clique e arraste: move a imagem quando o zoom estiver ampliado.
+
+
+Especificacoes Tecnicas
+
+Requisitos minimos:
+- Sistema operacional: Windows 10 ou superior.
+- Memoria RAM: 8 GB recomendados.
+- Navegador instalado.
+- Armazenamento: espaco suficiente para leitura dos pacotes .zip, cache
+  temporario de visualizacao e salvamento dos resultados.
+
+Para uso pelo codigo fonte:
+- Python 3.10 ou superior.
+- Pillow 10.0.0 ou superior.
+
+Tecnologias utilizadas:
+- Python 3.10+
+- Servidor HTTP local
+- HTML, CSS e JavaScript
+- Pillow
+
+
+Contato
+
+Duvidas, sugestoes ou suporte tecnico:
+
+E-mail: matheusaugustooliveira@alunos.utfpr.edu.br
+
+
+Licenca
+
+Este software e distribuido exclusivamente para fins academicos, cientificos e
+de pesquisa.
+
+E proibido o uso comercial ou redistribuicao sem autorizacao expressa dos
+autores.
+
+
+Agradecimentos
+
+Desenvolvido com apoio da Universidade Tecnologica Federal do Parana (UTFPR),
+em parceria com o projeto InfantID, com apoio do CNPq e da CAPES.

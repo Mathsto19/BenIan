@@ -30,7 +30,7 @@ python BenIan.py
 - Imagens do arquivo ZIP carregadas
 - Rótulos pré-existentes do arquivo JSON
 - Interface para revisar e corrigir as anotações
-- Opções de salvar ou revisar depois
+- Opcao de salvar a revisao no JSON
 
 ## Formato dos Arquivos
 
@@ -41,17 +41,19 @@ Arquivo compactado contendo imagens biométricas organizadas em pastas por dedo/
 Estrutura de anotações:
 ```json
 {
-  "itens": [
+  "2023 12.zip": [
     {
-      "id": "identificador",
-      "chave": "dedo_01_frame_01",
       "arquivo": "nome_da_imagem.png",
-      "status_revisao": "pendente|confirmado|corrigir",
-      "rotulos_corrigidos": ["Rótulo 1", "Rótulo 2"],
-      "severidades": {
-        "Rótulo 1": 1,
-        "Rótulo 2": 2
-      }
+      "id": "identificador",
+      "dedo": "Medio - Direita",
+      "erros": [
+        {
+          "nome": "Scanner Sujo",
+          "descricao": "Descricao do rotulo",
+          "avaliacao": 1,
+          "timestamp": "2026-04-25 20:24:12"
+        }
+      ]
     }
   ]
 }
@@ -72,14 +74,13 @@ Estrutura de anotações:
 ## Navegação e Atalhos
 
 ### Interface Visual
-- Clique nos botões **◀** e **▶** embaixo da imagem para navegar
-- Os botões mostram a posição atual (ex: "5 / 20")
+- Use os botoes **Anterior** e **Proxima** na barra superior para navegar
+- O rodape da imagem mostra a posicao atual (ex: "5 / 20")
 
 ### Teclado
 - **Seta direita** (→): próxima imagem
 - **Seta esquerda** (←): imagem anterior
-- `S`: salvar correção
-- `N`: revisar depois
+- `S`: salvar revisão
 - `1`, `2`: alternar camadas
 - `O`: imagem original
 - `+`, `-`, `0`: controlar zoom
@@ -90,5 +91,5 @@ Após testar com este exemplo, você pode:
 1. Carregar seus próprios arquivos ZIP
 2. Adicionar arquivo JSON com anotações existentes
 3. Revisar e corrigir cada imagem
-4. Exportar resultados em JSON e CSV
+4. Exportar `revisoes.json` e `resultado_benian.json`
 
