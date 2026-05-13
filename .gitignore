@@ -10,18 +10,10 @@ build/
 dist/
 *.spec
 
+dados/entrada/
+dados/saida/
+!dados/README.md
+
 *.log
-
-# Saidas geradas pelo aplicativo
-BENIAN/
-Codigo Fonte/BENIAN/
-Aplicativo/BENIAN/
-
-# Artefatos pesados de distribuicao ou entrada de dados
-*.exe
-*.zip
-*.pdf
-*.wav
-
-!Codigo Fonte/Exemplos/catalogo_erros.json
-!Aplicativo/catalogo_erros.json
+*.pt
+*.pth

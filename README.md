@@ -1,49 +1,111 @@
 # BenIan
 
-Software para rotulagem, inspecao e avaliacao de imagens biometricas, estruturado a partir da base do BENAPRO.
+Repositório do Software BenIan - Correção de anotação de imagens de digitais neonatais.
 
-O repositorio contem a versao de desenvolvimento em Python e uma pasta reservada para o aplicativo empacotado. Artefatos pesados, como executaveis, manuais em PDF/ZIP, audio e pacotes ZIP de exemplo, ficaram fora desta primeira base.
+O BenIan é um aplicativo local em Python com interface web. Ao iniciar, ele sobe um servidor HTTP local e abre o navegador em modo aplicativo/tela cheia, mantendo o fluxo simples para empacotar como executável Windows.
+
+## Objetivo
+
+O software serve para revisar e corrigir anotações de qualidade em imagens biométricas neonatais. O fluxo principal é:
+
+1. Carregar um ZIP ou uma pasta de imagens.
+2. Carregar anotações existentes, quando houver.
+3. Revisar imagem por imagem.
+4. Ajustar rótulos e severidade.
+5. Exportar as correções em JSON e CSV.
 
 ## Estrutura
 
 ```text
 BenIan/
-|-- Aplicativo/
-|   |-- README.md
-|   `-- catalogo_erros.json
 |-- Codigo Fonte/
 |   |-- BenIan.py
-|   |-- Requeriments.txt
+|   |-- requirements.txt
 |   |-- README.md
-|   |-- Exemplos/
-|   `-- Fotos/
+|   `-- Imagem/
+|       |-- icon.png
+|       `-- logo_texto.png
+|-- dados/
+|   `-- saida/
+|       |-- resultado_benian.json
+|       |-- revisoes.json
+|       |-- rotulos_confirmados.csv
+|       |-- rotulos_corrigir.csv
+|       `-- entrada/
 |-- LICENSE
 `-- README.md
 ```
 
-## Funcionalidades principais
+Todo o código do aplicativo fica em `Codigo Fonte/BenIan.py`. As imagens (logo e ícone) estão em `Codigo Fonte/Imagem/` para melhor organização.
 
-- Carregamento de imagens por arquivo ZIP.
-- Navegacao sequencial entre imagens.
-- Visualizacao com zoom, arraste, filtros e camadas RGBA.
-- Cadastro e edicao do catalogo de erros.
-- Selecao de erros por imagem.
-- Avaliacao por severidade de 1 a 5.
-- Exportacao das anotacoes em `BENIAN/resultado.json`.
-
-## Como executar pelo codigo fonte
+## Como rodar em desenvolvimento
 
 ```powershell
 cd "Codigo Fonte"
-pip install -r Requeriments.txt
+pip install -r requirements.txt
 python BenIan.py
 ```
 
-O aplicativo cria a pasta `BENIAN/` automaticamente para salvar os resultados.
+Por padrão o app abre em:
 
-## Proximos passos de produto
+```text
+http://127.0.0.1:8877
+```
 
-- Ajustar identidade visual final do BenIan, caso ela seja diferente da base do BENAPRO.
-- Validar o catalogo de erros padrao.
-- Criar build Windows em `Aplicativo/` quando o comportamento do codigo fonte estiver fechado.
-- Gerar manual proprio do BenIan depois que a interface estiver estabilizada.
+Para iniciar já com um pacote:
+
+```powershell
+python BenIan.py --origem "C:\caminho\pacote.zip" --resultado "C:\caminho\resultado.json"
+```
+
+## Entradas
+
+O BenIan aceita:
+
+- Arquivo `.zip` com imagens.
+- Pasta com imagens.
+- Pasta de pacote contendo um `.zip` e `BENAPRO/resultado.json`.
+- `resultado.json` do BENAPRO/BENIAN, opcional.
+- Seleção por diálogo local do Windows na tela de carregamento.
+
+Quando o pacote for ZIP, as imagens são extraídas para a pasta de saída em:
+
+```text
+dados/saida/entrada/pacotes
+```
+
+## Saídas
+
+Por padrão, o BenIan grava em `dados/saida`:
+
+- `revisoes.json`: registro completo das revisões.
+- `rotulos_confirmados.csv`: correções salvas como confirmadas.
+- `rotulos_corrigir.csv`: imagens marcadas para revisar depois.
+- `resultado_benian.json`: saída em formato próximo ao `resultado.json`.
+- `cache_visual/`: imagens temporárias usadas para filtros e camadas.
+
+## Atalhos
+
+- Seta direita: próxima imagem.
+- Seta esquerda: imagem anterior.
+- `S`: salvar correção.
+- `N`: revisar depois.
+- `1`, `2`: alternar camadas.
+- `O`: imagem original.
+- `+`, `-`, `0`: zoom.
+
+## Logo
+
+Para trocar o texto `BenIan` por uma imagem sem fundo, coloque o arquivo como `logo_texto.png` em `Codigo Fonte/Imagem/`.
+
+## Gerar executável
+
+```powershell
+.\scripts\build_exe.ps1
+```
+
+O executável será gerado em:
+
+```text
+dist/BenIan.exe
+```
