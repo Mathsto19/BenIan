@@ -103,15 +103,22 @@ Quando você salva anotações, o BenIan cria os arquivos de resultado:
 
 Os arquivos são salvos na pasta de saída que você especificar durante a execução.
 
-## Atalhos
+## Navegação
 
-- Seta direita: próxima imagem.
-- Seta esquerda: imagem anterior.
+### Teclado
+- **Seta direita** (→): próxima imagem.
+- **Seta esquerda** (←): imagem anterior.
 - `S`: salvar correção.
 - `N`: revisar depois.
 - `1`, `2`: alternar camadas.
 - `O`: imagem original.
 - `+`, `-`, `0`: zoom.
+- `ESC`: sair do aplicativo.
+
+### Interface
+- Botões **◀** e **▶** embaixo da imagem para navegar
+- Mostra a posição atual (ex: "5 / 20")
+- Botões na toolbar de cima também disponíveis
 
 ## Logo
 

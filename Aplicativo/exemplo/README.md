@@ -69,6 +69,21 @@ Estrutura de anotações:
 - Segmentação Boa
 - Sem Padrão Visível
 
+## Navegação e Atalhos
+
+### Interface Visual
+- Clique nos botões **◀** e **▶** embaixo da imagem para navegar
+- Os botões mostram a posição atual (ex: "5 / 20")
+
+### Teclado
+- **Seta direita** (→): próxima imagem
+- **Seta esquerda** (←): imagem anterior
+- `S`: salvar correção
+- `N`: revisar depois
+- `1`, `2`: alternar camadas
+- `O`: imagem original
+- `+`, `-`, `0`: controlar zoom
+
 ## Próximos Passos
 
 Após testar com este exemplo, você pode:

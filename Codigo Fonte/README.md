@@ -41,7 +41,12 @@ Principais dependências:
 
 - Interface web em modo fullscreen/aplicativo
 - Servidor HTTP local automático
-- Processamento de imagens com filtros
+- Processamento de imagens com filtros (camadas)
 - Suporte a pacotes ZIP e pastas
 - Exportação em JSON e CSV
+- Navegação por setas visuais (◀ e ▶) embaixo da imagem
+- Zoom interativo com mouse
+- Atalhos de teclado para navegar e editar
+- Rótulos customizáveis com severidade
+
 

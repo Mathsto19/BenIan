@@ -953,6 +953,49 @@ HTML = r"""<!doctype html>
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .image-navigation {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 12px;
+      background: #0f1419;
+      border-top: 1px solid var(--line);
+    }
+    .nav-arrow {
+      width: 44px;
+      height: 44px;
+      border: 2px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .nav-arrow:hover:not(:disabled) {
+      background: var(--accent-soft);
+      transform: scale(1.1);
+    }
+    .nav-arrow:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+    .nav-arrow:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      border-color: #556a7a;
+      color: #556a7a;
+    }
+    .nav-position {
+      color: #b9d8ed;
+      font-weight: 600;
+      font-size: 14px;
+      min-width: 60px;
+      text-align: center;
+    }
     .side {
       overflow: auto;
       padding: 16px;
@@ -1186,6 +1229,11 @@ HTML = r"""<!doctype html>
       <div class="image-wrap" id="imageWrap">
         <div class="empty">Nenhum pacote carregado.</div>
       </div>
+      <div class="image-navigation">
+        <button id="navPrevBtn" class="nav-arrow nav-prev" title="Imagem anterior (←)">◀</button>
+        <span id="navPosition" class="nav-position"></span>
+        <button id="navNextBtn" class="nav-arrow nav-next" title="Próxima imagem (→)">▶</button>
+      </div>
       <div class="footer">
         <span id="imageName"></span>
         <span id="position"></span>
@@ -1360,11 +1408,12 @@ HTML = r"""<!doctype html>
       el("imageWrap").innerHTML = '<div class="empty">Nenhum pacote carregado.</div>';
       el("imageName").textContent = "";
       el("position").textContent = "";
+      el("navPosition").textContent = "";
       el("labels").innerHTML = "";
       el("status").textContent = "vazio";
       el("status").className = "status";
       el("paths").textContent = "";
-      ["prevBtn", "nextBtn", "acceptBtn", "rejectBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = true);
+      ["prevBtn", "nextBtn", "navPrevBtn", "navNextBtn", "acceptBtn", "rejectBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = true);
     }
 
     function itemDraft(item) {
@@ -1547,8 +1596,11 @@ HTML = r"""<!doctype html>
       el("image").onload = () => applyZoom();
       el("imageName").textContent = item.arquivo || item.chave || "";
       el("position").textContent = `${index + 1} / ${state.itens.length}`;
+      el("navPosition").textContent = `${index + 1} / ${state.itens.length}`;
       el("prevBtn").disabled = index <= 0;
       el("nextBtn").disabled = index >= state.itens.length - 1;
+      el("navPrevBtn").disabled = index <= 0;
+      el("navNextBtn").disabled = index >= state.itens.length - 1;
       ["acceptBtn", "rejectBtn", "originalBtn", "clearBtn", "zoomOutBtn", "zoomResetBtn", "zoomInBtn"].forEach((id) => el(id).disabled = false);
 
       const status = item.status_revisao || "pendente";
@@ -1667,6 +1719,8 @@ HTML = r"""<!doctype html>
     el("chooseOutputBtn").onclick = () => escolherCaminho("saida", "outputPath");
     el("prevBtn").onclick = () => mudarIndice(index - 1);
     el("nextBtn").onclick = () => mudarIndice(index + 1);
+    el("navPrevBtn").onclick = () => mudarIndice(index - 1);
+    el("navNextBtn").onclick = () => mudarIndice(index + 1);
     el("acceptBtn").onclick = () => save("confirmado").catch((error) => toast(error.message, true));
     el("rejectBtn").onclick = () => save("corrigir").catch((error) => toast(error.message, true));
     el("originalBtn").onclick = usarOriginal;
