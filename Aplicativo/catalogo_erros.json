@@ -1,0 +1,44 @@
+{
+  "categorias": [],
+  "mapeamento": {},
+  "nomes": [
+    "Dedo Fora da Área",
+    "Sem Padrão Visível",
+    "Scanner Sujo",
+    "Manchas na Digital",
+    "Digital Escura",
+    "Fiapos na Digital",
+    "Digital Clara",
+    "Fora de Foco",
+    "Segmentação Boa"
+  ],
+  "descricoes": {
+    "Dedo Fora da Área": [
+      "Parte da digital ficou fora da área de captura."
+    ],
+    "Sem Padrão Visível": [
+      "A digital não tem padrão reconhecível."
+    ],
+    "Scanner Sujo": [
+      "O scanner está sujo."
+    ],
+    "Manchas na Digital": [
+      "Existem manchas entre as cristas."
+    ],
+    "Digital Escura": [
+      "A digital está muito escura."
+    ],
+    "Fiapos na Digital": [
+      "Existem fiapos entre as cristas."
+    ],
+    "Digital Clara": [
+      "A digital está muito clara."
+    ],
+    "Fora de Foco": [
+      "A digital está fora de foco."
+    ],
+    "Segmentação Boa": [
+      "A Segmentação ficou excelente, poucos erros aparentes."
+    ]
+  }
+}
