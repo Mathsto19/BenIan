@@ -1807,8 +1807,8 @@ HTML = r"""<!doctype html>
     function renderViews() {
       const views = [
         ["original", "Original"],
-        ["1", "1 Camada 1 (A)"],
-        ["2", "2 Camada 2 (R)"],
+        ["1", "Camada 1 (A)"],
+        ["2", "Camada 2 (R)"],
       ];
       el("viewButtons").innerHTML = "";
       views.forEach(([value, label]) => {
